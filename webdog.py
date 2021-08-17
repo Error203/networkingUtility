@@ -91,7 +91,7 @@ class WebDog:
 			while True:
 				if self.args.listen:
 					print(f"{self.interlocutor_nickname} says: ", end="")
-					message = b""
+					message = ""
 
 					while True:
 						message += self.client.recv(4096).decode("utf-8")
@@ -108,7 +108,7 @@ class WebDog:
 					self.communicator.send(buffer)
 
 					print(f"{self.interlocutor_nickname} says: ", end="")
-					message = b""
+					message = ""
 
 					while True:
 						message += self.communicator.recv(4096).decode("utf-8")
