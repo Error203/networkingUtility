@@ -161,5 +161,7 @@ if __name__ == '__main__':
 		else:
 			wd.communicate()
 
+		chat()
+
 	except Exception as e:
 		exit(0)
