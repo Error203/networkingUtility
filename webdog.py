@@ -94,7 +94,7 @@ class WebDog:
 					message = ""
 
 					while True:
-						message_buffer += self.client.recv(4096).decode("utf-8")
+						message_buffer = self.client.recv(4096).decode("utf-8")
 						if len(message_buffer) == 0:
 							message = ""
 							break
