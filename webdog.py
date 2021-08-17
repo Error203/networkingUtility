@@ -77,7 +77,7 @@ class WebDog:
 				self.client.send(self.header_page)
 				self.log.info("sent header page")
 
-			else:
+			elif not self.args.listen:
 				self.header_page = f"DEST.NICKNAME;{self.nickname}".encode("utf-8")
 				self.communicator.send(self.header_page)
 				self.log.info("sent header page")
@@ -94,16 +94,21 @@ class WebDog:
 					message = ""
 
 					while True:
-						message += self.client.recv(4096).decode("utf-8")
-						if len(message) < 4096:
+						message_buffer += self.client.recv(4096).decode("utf-8")
+						if len(message_buffer) == 0:
+							message = ""
 							break
+						elif len(message_buffer) < 4096:
+							break
+
+						message += message_buffer
 
 					print(message)
 
 					buffer = str(input("you: ")).encode("utf-8")
 					self.client.send(buffer)
 
-				else:
+				elif not self.args.listen:
 					buffer = str(input("you: ")).encode("utf-8")
 					self.communicator.send(buffer)
 
@@ -111,9 +116,14 @@ class WebDog:
 					message = ""
 
 					while True:
-						message += self.communicator.recv(4096).decode("utf-8")
-						if len(message) < 4096:
+						message_buffer = self.communicator.recv(4096).decode("utf-8")
+						if len(message_buffer) == 0:
+							message = ""
 							break
+						elif len(message_buffer) < 4096:
+							break
+
+						message += message_buffer
 
 					print(message)
 
