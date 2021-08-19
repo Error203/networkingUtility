@@ -32,11 +32,13 @@ class WebDog:
 		except Exception as e:
 			self.log.exception(e)
 			self.break_pipe(self.tcp_listener)
+			self.break_pipe(self.communicator)
 
 			exit(0)
 
 		except (KeyboardInterrupt, EOFError):
 			self.break_pipe(self.tcp_listener)
+			self.break_pipe(self.communicator)
 			
 			exit(1)
 
@@ -50,11 +52,13 @@ class WebDog:
 
 		except Exception as e:
 			self.log.exception(e)
+			self.break_pipe(self.tcp_listener)
 			self.break_pipe(self.communicator)
 
 			exit(0)
 
 		except (KeyboardInterrupt, EOFError):
+			self.break_pipe(self.tcp_listener)
 			self.break_pipe(self.communicator)
 			
 			exit(1)
@@ -88,8 +92,8 @@ class WebDog:
 				if self.header_page[0] == "DEST.NICKNAME":
 					self.interlocutor_nickname = str(self.header_page[1])
 
-			while True:
-				if self.args.listen:
+			if self.args.listen:
+				while True:
 					print(f"{self.interlocutor_nickname} says: ", end="")
 					message = ""
 
@@ -98,17 +102,19 @@ class WebDog:
 						if len(message_buffer) == 0:
 							message = ""
 							break
-						elif len(message_buffer) < 4096:
-							break
 
 						message += message_buffer
+
+						if len(message_buffer) < 4096:
+							break
 
 					print(message)
 
 					buffer = str(input("you: ")).encode("utf-8")
 					self.client.send(buffer)
 
-				elif not self.args.listen:
+			if not self.args.listen:
+				while True:
 					buffer = str(input("you: ")).encode("utf-8")
 					self.communicator.send(buffer)
 
@@ -120,10 +126,11 @@ class WebDog:
 						if len(message_buffer) == 0:
 							message = ""
 							break
-						elif len(message_buffer) < 4096:
-							break
 
 						message += message_buffer
+
+						if len(message_buffer) < 4096:
+							break
 
 					print(message)
 
@@ -135,6 +142,7 @@ class WebDog:
 			exit(0)
 
 		except KeyboardInterrupt:
+			print("\n\n")
 			self.log.info("got stop signal")
 			self.break_pipe(self.communicator)
 			self.break_pipe(self.tcp_listener)
