@@ -81,7 +81,7 @@ class WebDog:
 				self.client.send(self.header_page)
 				self.log.info("sent header page")
 
-			elif not self.args.listen:
+			if not self.args.listen:
 				self.header_page = f"DEST.NICKNAME;{self.nickname}".encode("utf-8")
 				self.communicator.send(self.header_page)
 				self.log.info("sent header page")
@@ -154,7 +154,7 @@ class WebDog:
 		if socket_object.fileno() == "-1":
 			self.log.warning("connection was broken by another process")
 
-		elif socket_object.fileno() != "-1":
+		if socket_object.fileno() != "-1":
 			socket_object.close()
 			del(socket_object)
 			self.log.info("cleaned connection up")
