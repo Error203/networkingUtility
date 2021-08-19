@@ -81,18 +81,6 @@ class WebDog:
 				self.client.send(self.header_page)
 				self.log.info("sent header page")
 
-			if not self.args.listen:
-				self.header_page = f"DEST.NICKNAME;{self.nickname}".encode("utf-8")
-				self.communicator.send(self.header_page)
-				self.log.info("sent header page")
-				self.log.info("waiting for header")
-				self.header_page = self.communicator.recv(4096).decode("utf-8")
-				self.header_page = self.header_page.strip().replace(" ", "").split(";")
-				self.log.info("got header page")
-				if self.header_page[0] == "DEST.NICKNAME":
-					self.interlocutor_nickname = str(self.header_page[1])
-
-			if self.args.listen:
 				while True:
 					print(f"{self.interlocutor_nickname} says: ", end="")
 					message = ""
@@ -114,6 +102,16 @@ class WebDog:
 					self.client.send(buffer)
 
 			if not self.args.listen:
+				self.header_page = f"DEST.NICKNAME;{self.nickname}".encode("utf-8")
+				self.communicator.send(self.header_page)
+				self.log.info("sent header page")
+				self.log.info("waiting for header")
+				self.header_page = self.communicator.recv(4096).decode("utf-8")
+				self.header_page = self.header_page.strip().replace(" ", "").split(";")
+				self.log.info("got header page")
+				if self.header_page[0] == "DEST.NICKNAME":
+					self.interlocutor_nickname = str(self.header_page[1])
+
 				while True:
 					buffer = str(input("you: ")).encode("utf-8")
 					self.communicator.send(buffer)
