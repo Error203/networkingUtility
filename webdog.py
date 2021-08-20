@@ -81,25 +81,24 @@ class WebDog:
 				self.client.send(self.header_page)
 				self.log.info("sent header page")
 
+				print(f"{self.interlocutor_nickname} says: ", end="")
+				message = ""
+
 				while True:
-					print(f"{self.interlocutor_nickname} says: ", end="")
-					message = ""
+					message_buffer = self.client.recv(4096).decode("utf-8")
+					if len(message_buffer) == 0:
+						message = ""
+						break
 
-					while True:
-						message_buffer = self.client.recv(4096).decode("utf-8")
-						if len(message_buffer) == 0:
-							message = ""
-							break
+					message += message_buffer
 
-						message += message_buffer
+					if len(message_buffer) < 4096:
+						break
 
-						if len(message_buffer) < 4096:
-							break
+				print(message)
 
-					print(message)
-
-					buffer = str(input("you: ")).encode("utf-8")
-					self.client.send(buffer)
+				buffer = str(input("you: ")).encode("utf-8")
+				self.client.send(buffer)
 
 			if not self.args.listen:
 				self.header_page = f"DEST.NICKNAME;{self.nickname}".encode("utf-8")
@@ -112,25 +111,24 @@ class WebDog:
 				if self.header_page[0] == "DEST.NICKNAME":
 					self.interlocutor_nickname = str(self.header_page[1])
 
+				buffer = str(input("you: ")).encode("utf-8")
+				self.communicator.send(buffer)
+
+				print(f"{self.interlocutor_nickname} says: ", end="")
+				message = ""
+
 				while True:
-					buffer = str(input("you: ")).encode("utf-8")
-					self.communicator.send(buffer)
+					message_buffer = self.communicator.recv(4096).decode("utf-8")
+					if len(message_buffer) == 0:
+						message = ""
+						break
 
-					print(f"{self.interlocutor_nickname} says: ", end="")
-					message = ""
+					message += message_buffer
 
-					while True:
-						message_buffer = self.communicator.recv(4096).decode("utf-8")
-						if len(message_buffer) == 0:
-							message = ""
-							break
+					if len(message_buffer) < 4096:
+						break
 
-						message += message_buffer
-
-						if len(message_buffer) < 4096:
-							break
-
-					print(message)
+				print(message)
 
 		except Exception as e:
 			self.log.exception(e)
@@ -177,7 +175,8 @@ if __name__ == '__main__':
 		else:
 			wd.communicate()
 
-		wd.chat()
+		while True:
+			wd.chat()
 
 	except Exception as e:
 		exit(0)
