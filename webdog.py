@@ -9,6 +9,7 @@ class WebDog:
 	def __init__(self, args):
 		self.log = Logger("WebDog Logs").get_logger("WebDog")
 		self.args = args
+		self.sockets_inspector = dict()
 
 		if not self.args.ip:
 			self.ip = "192.168.0.100"
@@ -26,19 +27,18 @@ class WebDog:
 			self.tcp_listener.bind((self.ip, self.port))
 			self.tcp_listener.listen(1)
 			self.log.info(f"tcp listener set up {self.ip}:{self.port}")
+			self.sockets_inspector["tcp_listener"] = self.tcp_listener
 			self.client, address_info = self.tcp_listener.accept()
 			self.log.info(f"caught up connection {address_info[0]}:{address_info[1]}")
 
 		except Exception as e:
 			self.log.exception(e)
 			self.break_pipe(self.tcp_listener)
-			self.break_pipe(self.communicator)
 
 			exit(0)
 
 		except (KeyboardInterrupt, EOFError):
 			self.break_pipe(self.tcp_listener)
-			self.break_pipe(self.communicator)
 			
 			exit(1)
 
@@ -47,24 +47,23 @@ class WebDog:
 		try:
 			self.communicator = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			self.communicator.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			self.sockets_inspector["tcp_communicator"] = self.communicator
 			self.communicator.connect((self.ip, self.port))
 			self.log.info(f"connected to {self.ip}:{self.port}")
 
 		except Exception as e:
 			self.log.exception(e)
-			self.break_pipe(self.tcp_listener)
 			self.break_pipe(self.communicator)
 
 			exit(0)
 
 		except (KeyboardInterrupt, EOFError):
-			self.break_pipe(self.tcp_listener)
 			self.break_pipe(self.communicator)
 			
 			exit(1)
 
 
-	def chat(self, interlocutor_nickname="interlocutor"):
+	def exchange_headers(self, interlocutor_nickname="interlocutor"):
 		try:
 			self.nickname = str(input("enter nickname: "))
 			if not self.nickname:
@@ -81,25 +80,6 @@ class WebDog:
 				self.client.send(self.header_page)
 				self.log.info("sent header page")
 
-				print(f"{self.interlocutor_nickname} says: ", end="")
-				message = ""
-
-				while True:
-					message_buffer = self.client.recv(4096).decode("utf-8")
-					if len(message_buffer) == 0:
-						message = ""
-						break
-
-					message += message_buffer
-
-					if len(message_buffer) < 4096:
-						break
-
-				print(message)
-
-				buffer = str(input("you: ")).encode("utf-8")
-				self.client.send(buffer)
-
 			if not self.args.listen:
 				self.header_page = f"DEST.NICKNAME;{self.nickname}".encode("utf-8")
 				self.communicator.send(self.header_page)
@@ -110,25 +90,6 @@ class WebDog:
 				self.log.info("got header page")
 				if self.header_page[0] == "DEST.NICKNAME":
 					self.interlocutor_nickname = str(self.header_page[1])
-
-				buffer = str(input("you: ")).encode("utf-8")
-				self.communicator.send(buffer)
-
-				print(f"{self.interlocutor_nickname} says: ", end="")
-				message = ""
-
-				while True:
-					message_buffer = self.communicator.recv(4096).decode("utf-8")
-					if len(message_buffer) == 0:
-						message = ""
-						break
-
-					message += message_buffer
-
-					if len(message_buffer) < 4096:
-						break
-
-				print(message)
 
 		except Exception as e:
 			self.log.exception(e)
@@ -146,14 +107,23 @@ class WebDog:
 			exit(1)
 
 
-	def break_pipe(self, socket_object):
-		if socket_object.fileno() == "-1":
-			self.log.warning("connection was broken by another process")
+	def break_pipe(self):
+		try:
+			for i in self.sockets_inspector:
+				if self.sockets_inspector[i].fileno() == "-1":
+					self.log.warning("connection was broken by another process")
 
-		if socket_object.fileno() != "-1":
-			socket_object.close()
-			del(socket_object)
-			self.log.info("cleaned connection up")
+				if self.sockets_inspector[i].fileno() != "-1":
+					self.sockets_inspector[i].close()
+					self.sockets_inspector[i] = None
+					self.log.info("cleaned connection up")
+
+			self.sockets_inspector.clear()
+
+		except Exception as e:
+			self.log.exception(e)
+
+			exit(0)
 
 
 if __name__ == '__main__':
@@ -175,8 +145,10 @@ if __name__ == '__main__':
 		else:
 			wd.communicate()
 
-		while True:
-			wd.chat()
+		wd.exchange_headers()
 
 	except Exception as e:
 		exit(0)
+
+	finally:
+		wd.break_pipe()

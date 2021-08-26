@@ -28,7 +28,7 @@ class Logger:
 		stream_handler = logging.StreamHandler() # stream handler to monitor errors to the console
 		file_handler = logging.FileHandler(path.join(self.directory_name, file_name)) # write errors and info to the file
 
-		formatter = logging.Formatter(fmt="%(asctime)s : %(levelname)s, %(name)s > %(message)s") # format of logs
+		formatter = logging.Formatter(fmt="%(name)s, %(levelname)s: %(message)s") # format of logs
 
 		stream_handler.setFormatter(formatter) # setting format
 		file_handler.setFormatter(formatter) # ^^^
