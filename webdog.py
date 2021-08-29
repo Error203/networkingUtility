@@ -1,6 +1,7 @@
 from qlogger import Logger
 import argparse
 import socket
+import time
 
 
 class WebDog:
@@ -9,13 +10,15 @@ class WebDog:
 	def __init__(self, args):
 		self.log = Logger("WebDog Logs").get_logger("WebDog")
 		self.args = args
+		self.ip = self.args.ip
+		self.port = self.args.port
 		self.sockets_inspector = dict()
 
-		if not self.args.ip:
+		if not self.ip:
 			self.ip = "192.168.0.100"
 			self.log.warning("ip is not set. (default: 192.168.0.100)")
 		
-		if not self.args.port:
+		if not self.port:
 			self.port = 9873
 			self.log.warning("port is not set. (default: 9873)")
 
@@ -107,6 +110,23 @@ class WebDog:
 			exit(1)
 
 
+	def open_chat(self):
+		try:
+			data = b""
+
+			if self.listen:
+				while data_length:
+					data += self.tcp_listener.recv(4096)
+					data_length = len(data)
+
+		except Exception as e:
+			self.log.exception(e)
+
+
+	def close_chat(self):
+		pass
+
+
 	def break_pipe(self):
 		try:
 			for i in self.sockets_inspector:
@@ -119,6 +139,8 @@ class WebDog:
 					self.log.info("cleaned connection up")
 
 			self.sockets_inspector.clear()
+
+			print("\x07")
 
 		except Exception as e:
 			self.log.exception(e)
@@ -140,12 +162,12 @@ if __name__ == '__main__':
 		args = parser.parse_args()
 
 		wd = WebDog(args)
-		if args.listen:
-			wd.listen()
-		else:
-			wd.communicate()
+		# if args.listen:
+		# 	wd.listen()
+		# else:
+		# 	wd.communicate()
 
-		wd.exchange_headers()
+		wd.open_chat()
 
 	except Exception as e:
 		exit(0)
