@@ -3,7 +3,7 @@ from os import mkdir, listdir, path
 from time import strftime
 
 class Logger:
-	def __init__(self, directory_name=None, level=logging.DEBUG):
+	def __init__(self, directory_name=None, level=logging.INFO):
 		"""
 		directory_name=None
 		Directory name where is stored logs
