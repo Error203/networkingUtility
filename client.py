@@ -25,10 +25,29 @@ class Client:
 			self.log.info(f"connected -> {self.ip}:{self.port}")
 		except Exception as e:
 			self.log.exception(e)
-		else:
-			self.log.debug("ended without exceptions")
 
-			exit(0)
+			self.break_pipe()
+			exit(1)
+		else:
+			self.log.debug("started without exceptions")
+
+
+	def receive_file(self):
+		try:
+			file_header = self.socket.recv(1024)
+			file_header = file_header.decode()
+			header = file_header.replace(" ", "").strip().split(";")
+			file_format = header[0]
+			total_file_size = header[1]
+			self.log.debug(f"header -> {file_header}")
+			# data = 1
+			# assembled_file = b""
+			# while data:
+			# 	packet = self.socket.recv(4096)
+			# 	if data < 4096:
+			# 		break
+		except Exception as e:
+			self.log.exception(e)
 		finally:
 			self.break_pipe()
 

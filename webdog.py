@@ -34,11 +34,13 @@ class WebDog:
 			_server = server.Server(self.ip, self.port, self.log_level)
 			_server.start_server()
 			self.log.info("imported module: server")
+			_server.send_file("українська.txt")
 		else:
 			import client
 			_client = client.Client(self.ip, self.port, self.log_level)
 			_client.start_client()
 			self.log.info("imported module: client")
+			_client.receive_file()
 
 
 if __name__ == '__main__':

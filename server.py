@@ -23,14 +23,42 @@ class Server:
 			self.log.info(f"accepted connection -> {self.address[0]}:{self.address[1]}")
 		except KeyboardInterrupt:
 			self.log.info("captured ^C")
+			self.break_pipe()
 		except Exception as e:
 			self.log.exception(e)
 
 			exit(1)
+			self.break_pipe()
 		else:
-			self.log.debug("ended without exceptions")
+			self.log.debug("started without exceptions")
 
-			exit(0)
+
+	def send_file(self, path_to_file):
+		try:
+			file = open(path_to_file, "rb")
+			file_format = file.name.split(".")
+			file = file.read()
+			file_header = list()
+			if len(file_format) >= 2:
+				file_header.append(str(file_format[-1]))
+				self.log.debug(f"file format is {file_format[-1]}")
+			else:
+				file_header.append("unsigned")
+				self.log.debug("file format is unsigned")
+			file_size = len(file)
+			if file_size != 0:
+				file_header.append(str(file_size))
+				self.log.debug(f"file size is {file_size}")
+			else:
+				file_header.append(str(0))
+				self.log.warning("file size is 0")
+
+			output_header = bytes(";".join(file_header), encoding="utf-8")
+			self.connected_client.send(output_header)
+			self.log.debug(f"sent header -> {output_header.decode()}")
+
+		except Exception as e:
+			self.log.exception(e)
 		finally:
 			self.break_pipe()
 
