@@ -34,13 +34,17 @@ class WebDog:
 			_server = server.Server(self.ip, self.port, self.log_level)
 			_server.start_server()
 			self.log.info("imported module: server")
-			_server.send_file("українська.txt")
+			_server.handle_headers()
+			# _server.send_file("українська.txt")
+			_server.break_pipe()
 		else:
 			import client
 			_client = client.Client(self.ip, self.port, self.log_level)
 			_client.start_client()
 			self.log.info("imported module: client")
-			_client.receive_file()
+			_client.handle_headers()
+			# _client.receive_file()
+			_client.break_pipe()
 
 
 if __name__ == '__main__':

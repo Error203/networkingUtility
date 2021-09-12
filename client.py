@@ -1,5 +1,7 @@
 import qlogger
 import socket
+import time
+import json
 
 
 class Client:
@@ -32,14 +34,31 @@ class Client:
 			self.log.debug("started without exceptions")
 
 
+	def handle_headers(self):
+		try:
+			file_header = self.socket.recv(4096)
+			self.log.debug("mode: decode")
+			self.log.debug("initializing json")
+			decoder = json.JSONDecoder()
+			encode = json.JSONEncoder()
+			self.log.debug("decoder and encoder are ready")
+			decoded_structure = decoder.decode(file_header.decode("utf-8"))
+			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
+			# file_header = file_header.decode()
+			# header = file_header.replace(" ", "").strip().split(";")
+			# file_format = header[0]
+			# total_file_size = header[1]
+			# self.log.debug(f"header -> {file_header}")
+		except Exception as e:
+			self.log.exception(e)
+
+		else:
+			self.log.debug("handle_headers -> success")
+
+
 	def receive_file(self):
 		try:
-			file_header = self.socket.recv(1024)
-			file_header = file_header.decode()
-			header = file_header.replace(" ", "").strip().split(";")
-			file_format = header[0]
-			total_file_size = header[1]
-			self.log.debug(f"header -> {file_header}")
+			pass
 			# data = 1
 			# assembled_file = b""
 			# while data:
@@ -59,12 +78,8 @@ class Client:
 				detached_fileno = self.socket.detach()
 				self.log.info(f"closed active connection -> fileno: {detached_fileno}")
 
-				exit(0)
 			elif file_descriptor == -1:
 				self.log.error("connection already closed")
 
-				exit(0)
 		except Exception as e:
 			self.log.exception(e)
-
-			exit(1)
