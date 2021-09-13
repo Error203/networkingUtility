@@ -1,6 +1,7 @@
 import qlogger
 import argparse
 import server
+import os
 
 
 class WebDog:
@@ -27,6 +28,14 @@ class WebDog:
 		self.port = self.args.port
 
 
+	def termux_sensor(self, socket, its_role):
+		pass
+		# if its_role == "server":
+		# 	command_to_execute = "termux-sensor -s \"LSM6DSL Gyroscope\""
+		# 	socket.send_data(os.system(command_to_execute))
+		# elif its_role == "client":
+		# 	socket.receive_data()
+
 
 	def main_loop(self):
 		if self.args.listen:
@@ -34,7 +43,8 @@ class WebDog:
 			_server = server.Server(self.ip, self.port, self.log_level)
 			_server.start_server()
 			self.log.info("imported module: server")
-			_server.handle_headers()
+			_server.send_data(b"Some data, text data, not big, just a little.")
+			# termux_sensor(_server, "server")
 			# _server.send_file("українська.txt")
 			_server.break_pipe()
 		else:
@@ -42,7 +52,8 @@ class WebDog:
 			_client = client.Client(self.ip, self.port, self.log_level)
 			_client.start_client()
 			self.log.info("imported module: client")
-			_client.handle_headers()
+			_client.receive_data()
+			# termux_sensor(_client, "client")
 			# _client.receive_file()
 			_client.break_pipe()
 

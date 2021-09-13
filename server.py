@@ -8,12 +8,25 @@ class Server:
 
 
 	def __init__(self, ip, port, log_level=qlogger.logging.INFO):
-		self.log = qlogger.Logger("server log", log_level).get_logger("server")
-		self.ip = ip
-		self.port = port
-		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.log.info("initialized server")
+		try:
+			self.log = qlogger.Logger("server log", log_level).get_logger("server")
+			self.ip = ip
+			self.port = port
+			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			self.log.info("initialized server")
+			self.log.debug("initializing json")
+			self.encoder = json.JSONEncoder()
+			self.log.debug("encoder is ready")
+			self.decoder = json.JSONDecoder()
+			self.log.debug("decoder is ready")
+
+
+		except Exception as e:
+			self.log.exception(e)
+			self.log.critical("failed on initializing")
+
+			exit(1)
 
 
 	def start_server(self, to_listen=1):
@@ -23,57 +36,95 @@ class Server:
 			self.log.info(f"server started -> {self.ip}:{self.port}")
 			self.connected_client, self.address = self.socket.accept()
 			self.log.info(f"accepted connection -> {self.address[0]}:{self.address[1]}")
+
 		except KeyboardInterrupt:
 			self.log.info("captured ^C")
 			self.break_pipe()
+
 		except Exception as e:
 			self.log.exception(e)
 
 			exit(1)
 			self.break_pipe()
+
 		else:
 			self.log.debug("started without exceptions")
 
 
-	def handle_headers(self, header_dictionary):
+	def send_header(self, header_dictionary):
 		try:
 			local_header = header_dictionary
 			self.log.debug("mode: send")
-			self.log.debug("initializing json")
-			encoder = json.JSONEncoder()
-			decoder = json.JSONDecoder()
-			self.log.debug("encoder and decoder are ready")
-			self.connected_client.send(bytes(encoder.encode(local_header), encoding="utf-8"))
-			# file = open(path_to_file, "rb")
-			# file_format = file.name.split(".")
-			# file = file.read()
-			# file_header = list()
-			# if len(file_format) >= 2:
-			# 	file_header.append(str(file_format[-1]))
-			# 	self.log.debug(f"file format is {file_format[-1]}")
-			# else:
-			# 	file_header.append("unsigned")
-			# 	self.log.debug("file format is unsigned")
-			# file_size = len(file)
-			# if file_size != 0:
-			# 	file_header.append(str(file_size))
-			# 	self.log.debug(f"file size is {file_size}")
-			# else:
-			# 	file_header.append(str(0))
-			# 	self.log.warning("file size is 0")
-
-			# output_header = bytes(";".join(file_header), encoding="utf-8")
-			# self.connected_client.send(output_header)
-			# self.log.debug(f"sent header -> {output_header.decode()}")
+			self.connected_client.send(bytes(self.encoder.encode(local_header), encoding="utf-8"))
 
 		except Exception as e:
 			self.log.exception(e)
+
 		else:
-			self.log.debug("handle_headers -> success")
+			self.log.debug("send_header -> success")
+
+			return 0
+
+
+	def receive_header(self):
+		try:
+			file_header = self.connected_client.recv(4096)
+			self.log.debug("mode: decode")
+			decoded_structure = self.decoder.decode(file_header.decode("utf-8"))
+			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
+
+		except Exception as e:
+			self.log.exception(e)
+
+		else:
+			self.log.debug("receive_header -> success")
+
+			return decoded_structure
 
 
 	def send_file(self, path_to_file):
 		pass
+
+
+	def send_data(self, data):
+		try:
+			if type(data) is not bytes:
+				data = bytes(data, encoding="utf-8")
+			if len(data) <= 4096:
+				self.send_header({"packet_size" : len(data), "mode" : "one_packet"})
+				self.connected_client.send(data)
+			if len(data) > 4096:
+				self.send_header({"packet_size" : len(data), "mode" : "multiple_packet"})
+				for i in range(0, len(data) + 1, 4096):
+					self.connected_client.send(data)
+			self.log.debug(f"sent {len(data)} bytes of data")
+			operation_code = self.receive_header()["operation_code"]
+			self.log.debug(f"operation code -> {operation_code}")
+		except Exception as e:
+			self.log.exception(e)
+
+			self.send_header({"operation_code" : "failed"})
+		else:
+			self.send_header({"operation_code" : "success"})
+			self.log.debug("send_data session -> success")
+
+			return 0
+
+
+	def receive_data(self):
+		try:
+			header = self.receive_header()
+			if header["mode"] == "one_packet":
+				packet_size = header["packet_size"]
+				self.log.debug(f"mode -> one packet ({packet_size} B)")
+				data = local_socket_accept.recv(4096)
+		except Exception as e:
+			self.log.exception(e)
+
+			self.send_header({"operation_code" : "failed"})
+		else:
+			self.send_header({"operation_code" : "success",})
+			self.log.debug("receive_data session -> success")
 
 
 	def break_pipe(self):
