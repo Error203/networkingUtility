@@ -22,7 +22,7 @@ class WebDog:
 		else:
 			self.log_level = qlogger.logging.INFO
 
-		self.log = qlogger.Logger("webdog log", self.log_level).get_logger("webdog")
+		self.log = qlogger.Logger(os.path.join("logs", "webdog log"), self.log_level).get_logger("webdog")
 
 		self.ip = self.args.ip
 		self.port = self.args.port
@@ -39,27 +39,40 @@ class WebDog:
 
 	def main_loop(self):
 		if self.args.listen:
-			import server
-			_server = server.Server(self.ip, self.port, self.log_level)
-			_server.start_server()
-			self.log.info("imported module: server")
-			_server.send_data(b"Some data, text data, not big, just a little.")
-			# termux_sensor(_server, "server")
-			# _server.send_file("українська.txt")
-			_server.break_pipe()
+			try:
+				import server
+				_server = server.Server(self.ip, self.port, self.log_level)
+				_server.start_server()
+				self.log.info("imported module: server")
+				_server.console_client()
+				# _server.chatting_room()
+				# termux_sensor(_server, "server")
+				# _server.send_file("українська.txt")
+
+			except Exception as e:
+				self.log.exception(e)
+
+			finally:
+				_server.break_pipe()
+
 		else:
-			import client
-			_client = client.Client(self.ip, self.port, self.log_level)
-			_client.start_client()
-			self.log.info("imported module: client")
-			_client.receive_data()
-			# termux_sensor(_client, "client")
-			# _client.receive_file()
-			_client.break_pipe()
+			try:
+				import client
+				_client = client.Client(self.ip, self.port, self.log_level)
+				_client.start_client()
+				self.log.info("imported module: client")
+				_client.console_host()
+				# _client.chatting_room()
+				# termux_sensor(_client, "client")
+				# _client.receive_file()
+
+			except Exception as e:
+				self.log.exception(e)
+
+			finally:
+				_client.break_pipe()
 
 
 if __name__ == '__main__':
 	wd = WebDog()
 	wd.main_loop()
-
-	wd.log.debug("webdog worked successfully - 0")

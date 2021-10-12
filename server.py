@@ -3,6 +3,7 @@ import socket
 import time
 import json
 import subprocess
+from os import path
 
 
 class Server:
@@ -10,7 +11,7 @@ class Server:
 
 	def __init__(self, ip, port, log_level=qlogger.logging.INFO):
 		try:
-			self.log = qlogger.Logger("server log", log_level).get_logger("server")
+			self.log = qlogger.Logger(path.join("logs", "server log"), log_level).get_logger("server")
 			self.ip = ip
 			self.port = port
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -66,13 +67,15 @@ class Server:
 
 			return 0
 
+		finally:
+			self.log.debug(local_header)
+
 
 	def receive_header(self):
 		try:
 			file_header = self.connected_client.recv(4096)
 			self.log.debug("mode: decode")
 			decoded_structure = self.decoder.decode(file_header.decode("utf-8"))
-			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
 
 		except Exception as e:
 			self.log.exception(e)
@@ -81,6 +84,9 @@ class Server:
 			self.log.debug("receive_header -> success")
 
 			return decoded_structure
+
+		finally:
+			self.log.debug(f"\nheader: {decoded_structure}\ntype: {type(decoded_structure)}")
 
 
 	def send_file(self, path_to_file):
@@ -99,14 +105,14 @@ class Server:
 				for i in range(0, len(data) + 1, 4096):
 					self.connected_client.send(data)
 			self.log.debug(f"sent {len(data)} bytes of data")
-			operation_code = self.receive_header()["operation_code"]
-			self.log.debug(f"operation code -> {operation_code}")
+			# operation_code = self.receive_header()["operation_code"]
+			# self.log.debug(f"operation code -> {operation_code}")
 		except Exception as e:
 			self.log.exception(e)
 
 			self.send_header({"operation_code" : "error"})
 		else:
-			self.send_header({"operation_code" : "success"})
+			# self.send_header({"operation_code" : "success"})
 			self.log.debug("send_data session -> success")
 
 
@@ -132,6 +138,11 @@ class Server:
 				# self.log.debug(f"\n{data}")
 
 				return data_collection
+
+			else:
+				self.log.debug(f"header is not satisfying\r\n{header}")
+				self.break_pipe()
+				exit(1)
 
 		except Exception as e:
 			self.log.exception(e)
@@ -196,9 +207,13 @@ class Server:
 					header_output = self.receive_header()
 					status_code = header_output["status_code"]
 					output = header_output["output"]
-					self.log.info(f"status code: {status_code}\r\noutput: {output}")
+					if status_code != 0:
+						self.log.info(f"executing error\r\n{output}")
+					else:
+						self.log.info(f"success\r\n{output}")
 				
 				except KeyboardInterrupt:
+					print("\r\n\r\n")
 					self.send_header({"callback_code" : "interrupted"})
 					self.log.info("interrupted")
 					break
