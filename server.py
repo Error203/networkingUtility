@@ -11,7 +11,7 @@ class Server:
 
 	def __init__(self, ip, port, log_level=qlogger.logging.INFO):
 		try:
-			self.log = qlogger.Logger(path.join("logs", "server log"), log_level).get_logger("server")
+			self.log = qlogger.Logger("server log", log_level).get_logger("server")
 			self.ip = ip
 			self.port = port
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

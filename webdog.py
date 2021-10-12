@@ -22,7 +22,7 @@ class WebDog:
 		else:
 			self.log_level = qlogger.logging.INFO
 
-		self.log = qlogger.Logger(os.path.join("logs", "webdog log"), self.log_level).get_logger("webdog")
+		self.log = qlogger.Logger("webdog log", self.log_level).get_logger("webdog")
 
 		self.ip = self.args.ip
 		self.port = self.args.port
