@@ -12,7 +12,9 @@ class Logger:
 		Directory name where is stored logs
 		"""
 
-		if file_stream:
+		self.file_stream = file_stream
+
+		if self.file_stream:
 
 			if not directory_name:
 				directory_name = "logs"
@@ -38,7 +40,7 @@ class Logger:
 		stream_handler.setFormatter(formatter) # setting format
 		stream_handler.setLevel(self.level) # setting level debug to debug this code
 
-		if file_stream:
+		if self.file_stream:
 
 			file_handler = logging.FileHandler(path.join(self.directory_name, file_name)) # write errors and info to the file
 			file_formatter = logging.Formatter(fmt="[%(asctime)s] %(name)s, %(levelname)s: %(message)s")
