@@ -25,12 +25,13 @@ class Logger:
 					mkdir(directory_name)
 
 			if len(self.dirs) > 1:
-				
-				if not path.exists(directory_name):
 
-					for i in range(len(self.dirs)):
+				for i in range(len(self.dirs)):
 
-						real_path = sep.join(self.dirs[0:i + 1])
+					real_path = sep.join(self.dirs[0:i + 1])
+
+					if not path.exists(real_path):
+
 						mkdir(real_path)
 
 			else:
