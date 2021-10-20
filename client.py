@@ -89,86 +89,18 @@ class Client:
 			self.log.debug("started without exceptions")
 
 
-	def receive_header(self):
-
-
-		try:
-
-			file_header = self.socket.recv(4096)
-			self.log.debug("mode: decode")
-			decoded_structure = self.decoder.decode(file_header.decode("utf-8"))
-
-		except json.JSONDecodeError:
-
-			if len(file_header) > 4096:
-
-				self.log.error(f"header length is too long: {len(file_header)} bytes")
-
-			else:
-
-				self.log.error(f"header can be wrong or broken")
-
-		except Exception as e:
-
-			self.log.exception(e)
-
-		else:
-
-			self.log.debug("header received")
-
-			return decoded_structure
-
-
-	def send_header(self, header_dictionary):
-
-
-			try:
-
-				local_header = header_dictionary
-
-				if len(local_header) > 4096:
-
-					self.log.warning(f"header length is too long: {len(local_header)} bytes")
-
-				self.log.debug("mode: send")
-				self.socket.send(bytes(self.encoder.encode(local_header), encoding="utf-8"))
-
-			except json.JSONDecodeError:
-
-				self.log.error("input data is incorrect and can't be encoded")
-
-			except Exception as e:
-
-				self.log.exception(e)
-
-			else:
-
-				self.log.debug("header sent")
-
-
 	def send_data(self, data):
 
 
 		try:
 
-			if type(data) is not bytes:
+			if not isinstance(data, bytes):
 
 				data = bytes(data, encoding="utf-8")
 
-			if len(data) <= 4096:
+			data += b"\r\n"
 
-				self.send_header({"packet_size" : len(data), "mode" : "one_packet"})
-				self.socket.send(data)
-
-			elif len(data) > 4096:
-
-				self.send_header({"packet_size" : len(data), "mode" : "multiple_packet"})
-
-				for i in range(0, len(data) + 1, 4096):
-
-					self.socket.send(data)
-
-			self.log.debug(f"sent {len(data)} bytes of data")
+			self.connected_client.send(data)
 
 		except Exception as e:
 
@@ -176,7 +108,7 @@ class Client:
 
 		else:
 
-			self.log.debug("data sent successfully")
+			self.log.debug(f"successfully sent {len(data)} bytes of data")
 
 
 	def receive_data(self):
@@ -184,32 +116,19 @@ class Client:
 
 		try:
 
-			header = self.receive_header()
+			data_buffer = b""
+			received_page = self.connected_client.recv(4096)
+			data_buffer += received_page
 
-			if header["mode"] == "one_packet":
+			while not received_page < 4096:
 
-				packet_size = header["packet_size"]
-				self.log.debug(f"mode: one packet ({packet_size} B)")
-				data = self.socket.recv(4096)
-				data = data
+				data_buffer += self.connected_client.recv(4096)
 
-				return data
+		except KeyboardInterrupt:
 
-			elif header["mode"] == "multiple_packet":
+			self.log.info("captured ")
 
-				packet_size = header["packet_size"]
-				self.log.debug(f"mode: multiple packets ({packet_size} B)")
-				data_collection = b""
-
-				for i in range(0, packet_size + 1, 4096):
-
-					data_collection += self.socket.recv(4096)
-
-				return data_collection
-
-			else:
-
-				self.log.debug(f"header is not satisfying\r\n{header}")
+			break
 
 		except Exception as e:
 
