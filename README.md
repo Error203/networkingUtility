@@ -1,4 +1,4 @@
 # webdog
-For beta use
+For developing for others.
 
-In developing . . .
+Archived until better times . . .
