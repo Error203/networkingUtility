@@ -1,7 +1,6 @@
 import qlogger
 import socket
 import time
-import json
 from os import path
 
 
@@ -19,12 +18,6 @@ class Client:
 			self.eternity = eternity
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			self.log.info("initialized client")
-			self.log.debug("initializing json")
-			self.decoder = json.JSONDecoder()
-			self.log.debug("decoder is ready")
-			self.encoder = json.JSONEncoder()
-			self.log.debug("encoder is ready")
 
 		except Exception as e:
 
@@ -36,57 +29,40 @@ class Client:
 
 	def start_client(self):
 
+		while True:
 
-		try:
+			try:
 
-			self.socket.connect((self.ip, self.port))
-			self.log.info(f"connected -> {self.ip}:{self.port}")
+				self.socket.connect((self.ip, self.port))
+				self.log.info(f"connected -> {self.ip}:{self.port}")
 
-		except ConnectionRefusedError:
+			except ConnectionRefusedError:
 
-			self.log.debug("connection refused")
+				if self.eternity:
 
-			if self.eternity:
+					self.socket.connect((self.ip, self.port))
+					self.log.debug("connection refused, retrying in 3 seconds")
+					time.sleep(3)
 
-				while True:
+					continue
 
-					try:
+				else:
 
-						self.socket.connect((self.ip, self.port))
+					self.log.error("server refused the connection")
 
-					except ConnectionRefusedError:
+					break
 
-						self.log.debug("connection refused, retrying in 5 seconds")
-						time.sleep(5)
+			except Exception as e:
 
-						continue
-
-					except Exception as e:
-
-						self.log.exception(e)
-
-						break
-
-					else:
-
-						self.log.info(f"connected -> {self.ip}:{self.port}")
-
-						break
+				self.log.exception(e)
+				self.break_pipe()
+				exit(1)
 
 			else:
 
-				self.log.error("server refused the connection")
+				self.log.debug("no exceptions")
 
-		except Exception as e:
-
-			self.log.exception(e)
-
-			self.break_pipe()
-			exit(1)
-
-		else:
-
-			self.log.debug("started without exceptions")
+				break
 
 
 	def send_data(self, data):
@@ -100,7 +76,7 @@ class Client:
 
 			data += b"\r\n"
 
-			self.connected_client.send(data)
+			self.socket.send(data)
 
 		except Exception as e:
 
@@ -108,7 +84,7 @@ class Client:
 
 		else:
 
-			self.log.debug(f"successfully sent {len(data)} bytes of data")
+			self.log.debug(f"sent {len(data)} bytes of data")
 
 
 	def receive_data(self):
@@ -117,18 +93,12 @@ class Client:
 		try:
 
 			data_buffer = b""
-			received_page = self.connected_client.recv(4096)
+			received_page = self.socket.recv(4096)
 			data_buffer += received_page
 
 			while not received_page < 4096:
 
-				data_buffer += self.connected_client.recv(4096)
-
-		except KeyboardInterrupt:
-
-			self.log.info("captured ")
-
-			break
+				data_buffer += self.socket.recv(4096)
 
 		except Exception as e:
 
@@ -136,7 +106,7 @@ class Client:
 
 		else:
 
-			self.log.debug("data received successfully")
+			self.log.debug("data received")
 
 
 	def break_pipe(self):
@@ -148,7 +118,7 @@ class Client:
 			if file_descriptor != -1:
 
 				detached_fileno = self.socket.detach()
-				self.log.info(f"closed active connection -> fileno: {detached_fileno}")
+				self.log.info(f"closed active connection with descriptor: {detached_fileno}")
 
 			elif file_descriptor == -1:
 

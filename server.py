@@ -84,12 +84,6 @@ class Server:
 
 				data_buffer += self.connected_client.recv(4096)
 
-		except KeyboardInterrupt:
-
-			self.log.info("captured ")
-
-			break
-
 		except Exception as e:
 
 			self.log.exception(e)
