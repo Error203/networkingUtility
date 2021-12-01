@@ -72,6 +72,9 @@ class Server:
 		if self.hex_dumper:
 			self.hex_dump(data_buffer)
 
+		if not self.hex_dumper:
+			print(data_buffer)
+
 		if not data_buffer:
 			self.break_pipe(client_endpoint)
 		
@@ -152,7 +155,7 @@ if __name__ == '__main__':
 
 	argument_parser.add_argument("-i", "--ip", type=str, default="127.0.0.1", help="ip")
 	argument_parser.add_argument("-p", "--port", type=int, default=9876, help="port")
-	argument_parser.add_argument("-d", "--hexdump", action="store_true", default=True, help="use hexdumper")
+	argument_parser.add_argument("-d", "--hexdump", action="store_false", default=True, help="use hexdumper")
 	argument_parser.add_argument("-b", "--buffer", type=int, default=8192, help="size of buffer")
 	argument_parser.add_argument("-c", "--client", type=int, default=1, help="number of active clients")
 	argument_parser.add_argument("-f", "--interface", action="store_true", default=False, help="process interfaces (for linux only)")

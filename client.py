@@ -8,11 +8,16 @@ import argparse
 class Client:
 
 
-	def __init__(self, connect_ip: str, connect_port: int, buffer_length: int=8192, hex_dumper: bool=False) -> object:
+	def __init__(self, connect_ip: str, connect_port: int, buffer_length: int=8192, hex_dumper: bool=False, file_path: str=None) -> object:
 		self.ip = connect_ip
 		self.port = connect_port
 		self.buffer_length = buffer_length
 		self.hex_dumper = hex_dumper
+
+		if file_path:
+			self.send_file(file_path)
+
+			exit(0)
 
 		if self.hex_dumper:
 			self.hex_dump = hex_dump.Hex(self.hex_dumper).hex_dump
@@ -55,6 +60,14 @@ class Client:
 		return data_buffer
 
 
+	def send_file(self, file_path) -> int:
+		print("sending file .../{}".format(file_path.split("/")[-1]))
+		with open(file_path, "rb") as file:
+			self.send_data(file.read())
+
+		del(file)
+
+
 	def break_pipe(self) -> None:
 		if self.client.fileno() != -1:
 			print("\rclosing socket...")
@@ -79,10 +92,11 @@ if __name__ == '__main__':
 	argument_parser.add_argument("port", type=int, help="port")
 	argument_parser.add_argument("-d", "--hexdump", action="store_true", help="hexdump stream")
 	argument_parser.add_argument("-b", "--buffer", type=int, default=8192, help="buffer size")
+	argument_parser.add_argument("-f", "--file", type=str, default=None, help="path to the file to send")
 
 	parsed_arguments = argument_parser.parse_args()
 
-	client = Client(connect_ip=parsed_arguments.ip, connect_port=parsed_arguments.port, buffer_length=parsed_arguments.buffer, hex_dumper=True)
+	client = Client(connect_ip=parsed_arguments.ip, connect_port=parsed_arguments.port, buffer_length=parsed_arguments.buffer, hex_dumper=True, file_path=parsed_arguments.file)
 	client.start()
 	while True:
 
