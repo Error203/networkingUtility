@@ -3,38 +3,38 @@ import hex_dump
 from time import sleep
 import selectors
 import argparse
-from netifaces import interfaces, ifaddresses, AF_INET
+from sys import platform
+import json
 
 
 class Server:
 
 
-	def __init__(self, bind_ip: str="127.0.0.1", bind_port: int=9876, buffer_length: int=8192, hex_dumper: bool=True) -> object:
-		print("\rinitializng...")
+	def __init__(self, bind_ip: str="127.0.0.1", bind_port: int=9876, buffer_length: int=8192, max_clients: int=1, hex_dumper: bool=True, interface: bool=False, proxy: bool=False) -> object:
+
 		self.ip = bind_ip
 		self.port = bind_port
+		self.max_clients = max_clients
 		self.buffer_length = buffer_length
 		self.hex_dumper = hex_dumper
-		self.argument_parser = argparse.ArgumentParser()
+		self.interface = interface
 
-		selector = selectors.DefaultSelector()
-		server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		server.bind((self.ip, self.port))
-		server.listen(2)
-		selector.register(fileobj=server, events=selectors.EVENT_READ, data=self.accept_connection)
+		self.selector = selectors.DefaultSelector()
 
-		self.server = server
-		self.selector = selector
 
 		if hex_dumper:
 			self.hex_dump = hex_dump.Hex(show=self.hex_dumper).hex_dump
+		if proxy:
+			self.decoder = json.JSONDecoder()
 
-		print("searching interfaces...")
 
-		for ifaceName in interfaces():
-			addresses = [i['addr'] for i in ifaddresses(ifaceName).setdefault(AF_INET, [{'addr':'No IP addr'}] )]
-			print(' '.join(addresses))
+	def initialize_server(self) -> socket.socket:
+		print("\rinitializing...")
+		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.server.bind((self.ip, self.port))
+		self.server.listen(self.max_clients)
+		self.selector.register(fileobj=self.server, events=selectors.EVENT_READ, data=self.accept_connection)
 
 
 	def send_data(self, data: bytes, client_endpoint: socket.socket) -> int:
@@ -50,6 +50,17 @@ class Server:
 		return 1
 
 
+	def handle_interfaces(self) -> str:
+		from netifaces import interfaces, ifaddresses
+		found_interfaces = list()
+		print("\rsearching interfaces...")
+		
+		for interface in interfaces():
+			found_interfaces.append(ifaddresses(interface)[2][0]["addr"])
+
+		return found_interfaces
+
+
 	def receive_data(self, client_endpoint: socket.socket) -> bytes:
 		data_buffer = b""
 		client_endpnt = client_endpoint.getpeername()
@@ -63,9 +74,21 @@ class Server:
 
 		if not data_buffer:
 			self.break_pipe(client_endpoint)
-			self.selector.unregister(client_endpoint)
 		
 		return data_buffer
+
+
+	def accept_connection(self, socket: socket.socket) -> None:
+		print("\rlistening...")
+		client, address_info = socket.accept()
+		client.setblocking(False)
+		print("client: %s:%d" % (address_info[0], address_info[1]))
+
+		self.selector.register(fileobj=client, events=selectors.EVENT_READ, data=self.receive_data)
+
+
+	def proxy_bridge(self):
+		pass
 
 
 	def break_pipe(self, socket: socket.socket) -> None:
@@ -75,31 +98,71 @@ class Server:
 			socket.close()
 
 		print(f"\rcleaning up...{client_endpnt[0]}:{client_endpnt[1]}")
-
-
-	def accept_connection(self) -> None:
-		print("\rlistening...")
-		client, address_info = self.server.accept()
-		print("client: %s:%d" % (address_info[0], address_info[1]))
-
-		self.selector.register(fileobj=client, events=selectors.EVENT_READ, data=self.receive_data)
+		self.selector.unregister(socket)
+		del(socket)
 
 
 	def async_loop(self) -> None:
 
+		if (platform == "linux" or platform == "linux2") and self.interface == True:
+			interfaces = self.handle_interfaces()
+			for interface in range(len(interfaces)):
+				print(f"{interface}. {interfaces[interface]}")
+
+			try:
+				interface_to_use_address = interfaces[int(input(": "))]
+
+			except (IndexError, TypeError, ValueError):
+				pass
+
+			else:
+				self.ip = interface_to_use_address
+
+		self.initialize_server()
+
+		# print("listening...{}".format(self.ip))
+
 		while True:
 
-			selected_socket = self.selector.select()
-			for key, events in selected_socket:
-				if key.fileobj is not self.server:
-					key.data(key.fileobj)
-				else:
-					key.data()
+			try:
+
+				selected_socket = self.selector.select()
+				for key, events in selected_socket:
+					if key.fileobj is not self.server:
+						key.data(key.fileobj)
+					else:
+						key.data(self.server)
 
 
-			sleep(0.01)
+				sleep(0.01)
+
+			except KeyboardInterrupt as e:
+
+				if selected_socket:
+					for socket_to_close, events in selected_socket:
+						self.break_pipe(socket_to_close.fileobj)
+				print("\rserver downed")
+				
+				break
 
 
 if __name__ == '__main__':
-	server = Server(hex_dumper=True)
+
+	argument_parser = argparse.ArgumentParser(description="tool to work with some protocols in internet")
+
+	argument_parser.add_argument("-i", "--ip", type=str, default="127.0.0.1", help="ip")
+	argument_parser.add_argument("-p", "--port", type=int, default=9876, help="port")
+	argument_parser.add_argument("-d", "--hexdump", action="store_true", default=True, help="use hexdumper")
+	argument_parser.add_argument("-b", "--buffer", type=int, default=8192, help="size of buffer")
+	argument_parser.add_argument("-c", "--client", type=int, default=1, help="number of active clients")
+	argument_parser.add_argument("-f", "--interface", action="store_true", default=False, help="process interfaces (for linux only)")
+	argument_parser.add_argument("-r", "--proxy", action="store_true", default=False, help="set up proxy (edit in ./config/proxy.json)")
+
+	parsed_arguments = argument_parser.parse_args()
+
+	server = Server(
+		bind_ip=parsed_arguments.ip, bind_port=parsed_arguments.port, hex_dumper=parsed_arguments.hexdump, buffer_length=parsed_arguments.buffer,
+		max_clients=parsed_arguments.client, interface=parsed_arguments.interface, proxy=parsed_arguments.proxy
+		)
+
 	server.async_loop()
