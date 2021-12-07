@@ -1,8 +1,9 @@
 import traceback
 import socket
-import hex_dump
+from modules import hex_dump
 from select import select
 import argparse
+import sys
 
 
 class Client:
@@ -34,9 +35,10 @@ class Client:
 
 		self.client.settimeout(1)
 
-		print("\rsending...")
 		try:
 			self.client.send(data)
+			
+			print("\rsent")
 		except BrokenPipeError:
 			print("connection broken by server")
 			return 1
@@ -45,9 +47,10 @@ class Client:
 
 
 	def receive_data(self) -> bytes:
-		print("\rreceiving...")
 		data_buffer = self.client.recv(self.buffer_length)
 
+		print("\rreceived")
+		
 		if self.hex_dumper:
 			self.hex_dump(data_buffer)
 
@@ -88,11 +91,12 @@ if __name__ == '__main__':
 
 	argument_parser = argparse.ArgumentParser(description="tool to work with some protocols in internet")
 
-	argument_parser.add_argument("ip", type=str, help="ip address")
+	argument_parser.add_argument("ip", type=str, help="ip address or dns server")
 	argument_parser.add_argument("port", type=int, help="port")
 	argument_parser.add_argument("-d", "--hexdump", action="store_true", help="hexdump stream")
 	argument_parser.add_argument("-b", "--buffer", type=int, default=8192, help="buffer size")
 	argument_parser.add_argument("-f", "--file", type=str, default=None, help="path to the file to send")
+	argument_parser.add_argument("-s", "--secure", action="store_true", help="use secure connection (paramiko) or not")
 
 	parsed_arguments = argument_parser.parse_args()
 
@@ -101,15 +105,20 @@ if __name__ == '__main__':
 	while True:
 
 		try:
-			code = client.send_data(input("#: "))
+			if not sys.stdin.isatty():
+				client.send_data("".join(sys.stdin))
+				client.receive_data()
 
-			# received_data = client.receive_data()
-
-			# if not received_data:
-				# break
-
-			if code:
 				break
+
+			else:
+				code = client.send_data(input("#: "))
+				client.receive_data()
+
+				if code:
+
+					break
+
 
 		except KeyboardInterrupt:
 			print("\rconnection broken by client")
