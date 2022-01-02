@@ -1,4 +1,4 @@
 # webdog
-For developing for others.
+For those who wants to fuck with other's code.
 
-Developing async program . . .
+Developing program . . .
